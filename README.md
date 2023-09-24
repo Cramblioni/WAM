@@ -35,12 +35,12 @@ Unifying instructions:
 - `unify_value [reg: register]`
     - `READ`: invoke `unify($reg, %S)`, the success of `unify` is the success
               of this instruction.
-    - `WRITE`: behaves like `set_structure $reg`, but increments `S`.
+    - `WRITE`: behaves like `set_value $reg`, but increments `S`.
 - `get_structure [f: functor] [reg: register]`
     If `reg` contains a variable, set the current mode to write mode and
     act like `set_structure $f $reg`, but update `S`. If `reg` is a STR cell,
     check if the functors match (failing if they don't), then update `S`
-    respectively.
+    respectively. (item: 3)
 
 ### related notes
 Our C implementation adds a reference to the Environment (currently just the
@@ -96,8 +96,8 @@ query:
 
 ## Items
 1) This is based on "Warrens Abstract Machine: A Tutorial Reconstruction"
-2)
-    This function is taken is `Figure 2.7: The unify operation`. I don't know
+
+2)  This function is taken is `Figure 2.7: The unify operation`. I don't know
     what langauge it's written in, but it's hard to parse. `PDL` is assumed to
     be a stack of addresses. `PDL` is never declared or defined. At this point
     in the paper, the name `HEAP` and `STORE` are used to refer to the same
@@ -129,4 +129,32 @@ procedure unify(a₁, a₂ : address);
         end
     end
 end unify;
+```
+3)  This is the implementation for `get_structure` from the paper. Same
+    terminology as previous code snippet.
+    The procedure is quite simple (mainly by not using unify). We either
+    encounter the STR cell or a VAR, otherwise we fail. In the case of the STR
+    cell, we check (exit on fail) then jump then continue. In the case of a
+    VAR cell, we bind it to the end of the heap, then enter write mode and
+    then enter build mode in order to build the missing term.
+```math
+procedure get_structure(f/n : Functor, Xi: Register);
+    addr <- deref(Xi)
+    case STORE[addr] of
+        ⟨REF, _⟩: begin
+                HEAP[H] <- ⟨STR, H + 1⟩;
+                HEAP[H + 1] <- f / n;
+                bind(addr, H);
+                H <- H + 2;
+                mode <- write;
+            end
+        ⟨STR, a⟩: if HEAP[a] = f/n
+                    then begin
+                        S <- a + 1;
+                        mode <- read;
+                    end
+                    else fail <- true;
+        other: fail <- true
+    endcase
+end get_structure;
 ```
